@@ -126,6 +126,7 @@ namespace PureGIS_Geo_QC.WPF
 
                 // 프로젝트가 로드되었을 때
                 this.Title = $"PureGIS Geo-QC - {CurrentProject.ProjectName}";
+                ProjectNameTextBox.Text = CurrentProject.ProjectName;
 
                 // TreeView에 카테고리 구조로 바인딩
                 ProjectTreeView.ItemsSource = CurrentProject.Categories;
@@ -163,7 +164,7 @@ namespace PureGIS_Geo_QC.WPF
 
         // =================== 탭 1 로직 ===================
         /// <summary>
-        /// 새 테이블 만들기
+        /// ✨ 2. 새 테이블 만들기 (선택된 카테고리에 추가)
         /// </summary>
         private void NewTableButton_Click(object sender, RoutedEventArgs e)
         {
@@ -173,25 +174,43 @@ namespace PureGIS_Geo_QC.WPF
                 return;
             }
 
-            // 카테고리 선택을 위한 간단한 방법 (첫 번째 카테고리에 추가)
-            var firstCategory = CurrentProject.Categories.FirstOrDefault();
-            if (firstCategory == null)
+            InfrastructureCategory targetCategory = null;
+
+            // TreeView에서 선택된 항목을 기준으로 부모 카테고리를 찾습니다.
+            var selectedItem = ProjectTreeView.SelectedItem;
+            if (selectedItem is InfrastructureCategory category)
             {
-                CustomMessageBox.Show(this, "오류", "사용 가능한 카테고리가 없습니다.");
-                return;
+                // 카테고리를 직접 선택한 경우
+                targetCategory = category;
+            }
+            else if (selectedItem is TableDefinition table)
+            {
+                // 테이블을 선택한 경우, 해당 테이블이 속한 부모 카테고리를 찾습니다.
+                targetCategory = CurrentProject.Categories
+                    .FirstOrDefault(c => c.Tables.Contains(table));
+            }
+
+            if (targetCategory == null)
+            {
+                // 아무것도 선택하지 않았다면 첫 번째 카테고리에 추가 (기존 방식 유지)
+                targetCategory = CurrentProject.Categories.FirstOrDefault();
+                if (targetCategory == null)
+                {
+                    CustomMessageBox.Show(this, "오류", "테이블을 추가할 카테고리가 없습니다.");
+                    return;
+                }
             }
 
             var newTable = new TableDefinition
             {
-                TableId = "NEW_TABLE_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"),
+                TableId = "NEW_TABLE_" + DateTime.Now.ToString("HHmmss"),
                 TableName = "새 테이블"
             };
 
-            firstCategory.Tables.Add(newTable);
-            UpdateTableList();
+            targetCategory.Tables.Add(newTable);
+            UpdateTableList(); // TreeView UI 새로고침
 
-            // TreeView에서 새로 만든 테이블을 선택하는 로직 (복잡함 - 일단 생략)
-            CustomMessageBox.Show(this, "완료", "새 테이블이 생성되었습니다. 테이블 정보를 편집하고 Ctrl+V로 컬럼을 추가하세요.");
+            CustomMessageBox.Show(this, "완료", $"'{targetCategory.CategoryName}' 카테고리에 새 테이블이 추가되었습니다.");
         }
 
         /// <summary>
@@ -873,18 +892,21 @@ namespace PureGIS_Geo_QC.WPF
         private (int Precision, int Scale) ParseStandardLength(string lengthString)
         {
             if (string.IsNullOrWhiteSpace(lengthString)) return (0, 0);
+                  // 쉼표가 포함되어 있는지 확인
             if (lengthString.Contains(","))
             {
                 var parts = lengthString.Split(',');
                 if (parts.Length == 2 && int.TryParse(parts[0], out int precision) && int.TryParse(parts[1], out int scale))
                 {
+                            // 쉼표 앞은 전체 자릿수, 뒤는 소수점 자릿수로 변환
                     return (precision, scale);
                 }
             }
-            else
+            else // 쉼표가 없으면
             {
                 if (int.TryParse(lengthString, out int precision))
                 {
+                    // 전체를 자릿수로 취급하고 소수점은 0으로 처리
                     return (precision, 0);
                 }
             }
@@ -1017,8 +1039,9 @@ namespace PureGIS_Geo_QC.WPF
             if (result == true)
             {
                 // TODO: 프로젝트명 입력 다이얼로그 표시
-                var projectName = "새 프로젝트"; // 임시
+                var projectName = "이름 없는 프로젝트";
                 CurrentProject = ProjectManager.CreateNewProject(projectName);
+                CustomMessageBox.Show(this, "새 프로젝트", "새 프로젝트가 생성되었습니다. 상단의 입력란에 프로젝트명을 입력하고 저장하세요.");
             }
         }
 
@@ -1082,12 +1105,32 @@ namespace PureGIS_Geo_QC.WPF
         }
 
         /// <summary>
-        /// 프로그램 정보 메뉴 클릭
+            /// 프로그램 정보 메뉴 클릭
         /// </summary>
         private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
         {
             // TODO: AboutWindow 창 띄우기 기능 구현
             CustomMessageBox.Show(this, "정보", "프로그램 정보 창은 향후 구현 예정입니다.");
+        }
+        /// <summary>
+        /// ✨ 1. 프로젝트 이름 저장 버튼 클릭 이벤트
+        /// </summary>
+        private void SaveProjectNameButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (CurrentProject == null)
+            {
+                CustomMessageBox.Show(this, "오류", "먼저 프로젝트를 생성하거나 불러오세요.");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(ProjectNameTextBox.Text))
+            {
+                CustomMessageBox.Show(this, "오류", "프로젝트명을 입력하세요.");
+                return;
+            }
+
+            CurrentProject.ProjectName = ProjectNameTextBox.Text.Trim();
+            UpdateProjectUI(); // 창 제목 등 UI 업데이트
+            CustomMessageBox.Show(this, "완료", "프로젝트명이 저장되었습니다.");
         }
         #endregion
         #region Export Methods
@@ -1216,6 +1259,74 @@ namespace PureGIS_Geo_QC.WPF
             }
         }
 
+        #endregion
+        #region TreeView Drag and Drop
+        // =======================================================
+        // ✨ 4. TreeView 드래그 앤 드롭 로직
+        // =======================================================
+        private Point startPoint;
+        private bool isDragging = false;
+
+        private void TreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            startPoint = e.GetPosition(null);
+        }
+
+        private void TreeView_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && !isDragging)
+            {
+                Point position = e.GetPosition(null);
+                if (Math.Abs(position.X - startPoint.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(position.Y - startPoint.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    if (ProjectTreeView.SelectedItem is TableDefinition)
+                    {
+                        isDragging = true;
+                        DataObject data = new DataObject("myFormat", ProjectTreeView.SelectedItem);
+                        DragDrop.DoDragDrop(ProjectTreeView, data, DragDropEffects.Move);
+                        isDragging = false;
+                    }
+                }
+            }
+        }
+
+        private void TreeView_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("myFormat"))
+            {
+                TableDefinition droppedTable = e.Data.GetData("myFormat") as TableDefinition;
+                var targetElement = e.OriginalSource as FrameworkElement;
+
+                // 드롭된 위치의 데이터 컨텍스트를 찾습니다.
+                object dataContext = targetElement?.DataContext;
+
+                InfrastructureCategory targetCategory = null;
+
+                if (dataContext is InfrastructureCategory category)
+                {
+                    targetCategory = category;
+                }
+                else if (dataContext is TableDefinition table)
+                {
+                    targetCategory = CurrentProject.Categories.FirstOrDefault(c => c.Tables.Contains(table));
+                }
+
+                if (droppedTable != null && targetCategory != null)
+                {
+                    // 기존 카테고리에서 테이블 제거
+                    InfrastructureCategory sourceCategory = CurrentProject.Categories
+                        .FirstOrDefault(c => c.Tables.Contains(droppedTable));
+
+                    if (sourceCategory != null && sourceCategory != targetCategory)
+                    {
+                        sourceCategory.Tables.Remove(droppedTable);
+                        targetCategory.Tables.Add(droppedTable);
+                        UpdateTableList(); // UI 새로고침
+                    }
+                }
+            }
+        }
         #endregion
     }
 }

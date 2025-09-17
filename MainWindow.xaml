@@ -58,7 +58,23 @@
             <Setter Property="Background" Value="#FF2D2D30"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,0,5,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        </Style>
+        <Style TargetType="{x:Type DataGridRow}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#FF4A6982"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF3E3E42"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <!-- 메뉴 스타일 -->
@@ -264,10 +280,14 @@
                                             Background="#FF8B4513" Foreground="White"/>
                                 </StackPanel>
 
-                                <!-- 기존 ListBox 대신 TreeView 사용 -->
+                                <!-- 기존 ListBox 대신 TreeView 사용 -->                                
                                 <TreeView Name="ProjectTreeView" Background="Transparent" Foreground="White" BorderThickness="0" 
-                                            Margin="10,0,10,10" SelectedItemChanged="ProjectTreeView_SelectedItemChanged">
-                                    <TreeView.ItemTemplate>
+                                        Margin="10,0,10,10" SelectedItemChanged="ProjectTreeView_SelectedItemChanged"
+                                        AllowDrop="True"
+                                        PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown"
+                                        MouseMove="TreeView_MouseMove"
+                                        Drop="TreeView_Drop">
+                                        <TreeView.ItemTemplate>
                                         <HierarchicalDataTemplate ItemsSource="{Binding Tables}">
                                             <TextBlock Text="{Binding CategoryName}" FontWeight="Bold"/>
                                             <HierarchicalDataTemplate.ItemTemplate>
@@ -289,7 +309,7 @@
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>                                            
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -298,6 +318,9 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="프로젝트명:" Foreground="LightGray" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                        <TextBox Grid.Column="1" Name="ProjectNameTextBox" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray" VerticalContentAlignment="Center"/>
+                                        <Button Grid.Column="2" Content="이름 저장" Padding="8,3" Name="SaveProjectNameButton" Click="SaveProjectNameButton_Click" Margin="10,0,0,0"/>
 
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="테이블 ID:" Foreground="LightGray" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                         <TextBox Grid.Row="0" Grid.Column="1" Name="TableIdTextBox" Margin="0,0,15,0" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray"/>
@@ -315,7 +338,11 @@
                                                Foreground="LightBlue" FontSize="12" TextWrapping="Wrap"/>
                                 </Border>
 
-                                <DataGrid Name="StandardGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray">
+                                <DataGrid Name="StandardGrid" AutoGenerateColumns="False" 
+                                          CanUserAddRows="False" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray" RowHeight="28"
+                                          IsReadOnly="False"
+                                          SelectionUnit="Cell"
+                                          SelectionMode="Extended">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="컬럼 ID" Binding="{Binding ColumnId}" Width="*"/>
                                         <DataGridTextColumn Header="컬럼명" Binding="{Binding ColumnName}" Width="2*"/>
