@@ -1,9 +1,11 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
+using PureGIS_Geo_QC.Exports.Models;
+using QuestPDF.Drawing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using PureGIS_Geo_QC.Exports.Models;
 
 namespace PureGIS_Geo_QC.Exports
 {
@@ -19,7 +21,27 @@ namespace PureGIS_Geo_QC.Exports
         static QuestPdfExporter()
         {
             // 라이센스 설정 (Community는 무료)
-            QuestPDF.Settings.License = LicenseType.Community;            
+            QuestPDF.Settings.License = LicenseType.Community;
+            // --- 이 부분을 추가하세요 ---
+            try
+            {
+                // Windows Fonts 폴더에서 '맑은 고딕' 폰트 파일을 직접 읽어옵니다.
+                string fontPath = "C:/Windows/Fonts/malgun.ttf";
+                if (File.Exists(fontPath))
+                {
+                    // QuestPDF의 폰트 관리자에 폰트 파일을 등록합니다.
+                    FontManager.RegisterFont(File.OpenRead(fontPath));
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("맑은 고딕 폰트 파일을 찾을 수 없습니다.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 폰트 등록 중 오류가 발생해도 프로그램이 중단되지 않도록 처리합니다.
+                System.Diagnostics.Debug.WriteLine($"폰트 등록 오류: {ex.Message}");
+            }
         }
 
         public async Task<bool> ExportAsync(ReportData reportData, string filePath)
