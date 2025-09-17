@@ -4,6 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PureGIS_Geo_QC.WPF"
+        xmlns:models="clr-namespace:PureGIS_Geo_QC.Models"
+        xmlns:exportModels="clr-namespace:PureGIS_Geo_QC.Exports.Models"
         KeyDown="MainWindow_KeyDown"
         mc:Ignorable="d"
         Title="PureGIS Geo-QC" Height="600" Width="1000"
@@ -11,8 +13,8 @@
         WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResizeWithGrip"
         Background="#FF2D2D30">
     <Window.Resources>
-        
         <local:BoolToCheckMarkConverter x:Key="BoolToCheckMarkConverter"/>
+        <local:RemarksConverter x:Key="RemarksConverter"/>
 
         <!-- 타이틀바 버튼 스타일 -->
         <Style x:Key="TitleBarButtonStyle" TargetType="Button">
@@ -53,6 +55,36 @@
             <Setter Property="Padding" Value="5"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FF3E3E42"/>
+            <Setter Property="Foreground" Value="#FFDDDDDD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#FF555555"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FF555555"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#FF777777"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FF2D2D30"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="{x:Type DataGridCell}">
             <Setter Property="Background" Value="#FF2D2D30"/>
@@ -236,25 +268,37 @@
             </Menu>
 
             <!-- 메인 컨텐츠 -->
-            <TabControl Name="MainTabControl" Background="#FF2D2D30">
+            <TabControl Name="MainTabControl" Background="#FF2D2D30" BorderThickness="0">
                 <TabControl.Resources>
                     <Style TargetType="TabItem">
-                        <Setter Property="Background" Value="#FF3E3E42"/>
-                        <Setter Property="Foreground" Value="White"/>
-                        <Setter Property="Padding" Value="10,5"/>
+                        <Setter Property="Padding" Value="12,8"/>
+                        <Setter Property="Foreground" Value="#FFAAAAAA"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="TabItem">
-                                    <Border Name="Border" BorderThickness="1,1,1,0" BorderBrush="Gray" CornerRadius="4,4,0,0" Margin="2,0">
-                                        <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border x:Name="Border" 
+                            Background="Transparent" 
+                            BorderThickness="0,0,0,2" 
+                            BorderBrush="Transparent"
+                            Margin="0,0,5,0">
+                                        <ContentPresenter ContentSource="Header" 
+                                          HorizontalAlignment="Center" 
+                                          VerticalAlignment="Center"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Border" Property="Background" Value="#FF2D2D30" />
+                                            <Setter TargetName="Border" Property="BorderBrush" Value="#FF3498DB"/>
+                                            <Setter Property="Foreground" Value="White"/>
                                         </Trigger>
-                                        <Trigger Property="IsSelected" Value="False">
-                                            <Setter TargetName="Border" Property="Background" Value="#FF555555" />
-                                        </Trigger>
+                                        <MultiTrigger>
+                                            <MultiTrigger.Conditions>
+                                                <Condition Property="IsMouseOver" Value="True"/>
+                                                <Condition Property="IsSelected" Value="False"/>
+                                            </MultiTrigger.Conditions>
+                                            <Setter TargetName="Border" Property="Background" Value="#FF3E3E42"/>
+                                            <Setter Property="Foreground" Value="#FFDDDDDD"/>
+                                        </MultiTrigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Setter.Value>
@@ -262,32 +306,54 @@
                     </Style>
                 </TabControl.Resources>
 
-                <TabItem Header="1. 기준 정의">
+                <TabItem>
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="20" Height="20" CornerRadius="10" Background="#FF555555" Margin="0,0,8,0">
+                                <TextBlock Text="1" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="기준 정의" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </TabItem.Header>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="300"/>
                             <ColumnDefinition Width="5"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-
                         <Border Grid.Column="0" Background="#FF3E3E42" CornerRadius="5" Margin="10">
                             <DockPanel>
+                                <Border DockPanel.Dock="Top" Background="#FF4A4A4A" CornerRadius="3" Margin="10,10,10,0" Padding="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="프로젝트명:" Foreground="LightGray" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                        <TextBox Grid.Column="1" Name="ProjectNameTextBox" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray" VerticalContentAlignment="Center"/>
+                                        <Button Grid.Column="2" Content="이름 저장" Padding="8,3" Name="SaveProjectNameButton" Click="SaveProjectNameButton_Click" Margin="10,0,0,0"/>
+                                    </Grid>
+                                </Border>
+
                                 <TextBlock DockPanel.Dock="Top" Text="등록된 테이블" Foreground="White" FontSize="16" Margin="10" FontWeight="Bold"/>
 
                                 <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="10,0,10,10">
-                                    <Button Content="새 테이블 만들기" Padding="8,5" Name="NewTableButton" Click="NewTableButton_Click" Margin="0,0,0,5"/>
-                                    <Button Content="선택 테이블 삭제" Padding="8,5" Name="DeleteTableButton" Click="DeleteTableButton_Click" 
-                                            Background="#FF8B4513" Foreground="White"/>
+                                    <Button Content="새 테이블 만들기" Name="NewTableButton" Click="NewTableButton_Click" Margin="0,0,0,5" 
+                                            Style="{StaticResource ModernButtonStyle}"/>
+
+                                    <Button Content="선택 테이블 삭제" Name="DeleteTableButton" Click="DeleteTableButton_Click" 
+                                            Style="{StaticResource ModernButtonStyle}" Background="#b03a2e" Foreground="White"/>
                                 </StackPanel>
 
-                                <!-- 기존 ListBox 대신 TreeView 사용 -->                                
+                                <!-- 기존 ListBox 대신 TreeView 사용 -->
                                 <TreeView Name="ProjectTreeView" Background="Transparent" Foreground="White" BorderThickness="0" 
                                         Margin="10,0,10,10" SelectedItemChanged="ProjectTreeView_SelectedItemChanged"
                                         AllowDrop="True"
                                         PreviewMouseLeftButtonDown="TreeView_PreviewMouseLeftButtonDown"
                                         MouseMove="TreeView_MouseMove"
                                         Drop="TreeView_Drop">
-                                        <TreeView.ItemTemplate>
+                                    <TreeView.ItemTemplate>
                                         <HierarchicalDataTemplate ItemsSource="{Binding Tables}">
                                             <TextBlock Text="{Binding CategoryName}" FontWeight="Bold"/>
                                             <HierarchicalDataTemplate.ItemTemplate>
@@ -309,7 +375,7 @@
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>                                            
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -318,9 +384,6 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="프로젝트명:" Foreground="LightGray" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                        <TextBox Grid.Column="1" Name="ProjectNameTextBox" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray" VerticalContentAlignment="Center"/>
-                                        <Button Grid.Column="2" Content="이름 저장" Padding="8,3" Name="SaveProjectNameButton" Click="SaveProjectNameButton_Click" Margin="10,0,0,0"/>
 
                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="테이블 ID:" Foreground="LightGray" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                         <TextBox Grid.Row="0" Grid.Column="1" Name="TableIdTextBox" Margin="0,0,15,0" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray"/>
@@ -344,27 +407,86 @@
                                           SelectionUnit="Cell"
                                           SelectionMode="Extended">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="컬럼 ID" Binding="{Binding ColumnId}" Width="*"/>
-                                        <DataGridTextColumn Header="컬럼명" Binding="{Binding ColumnName}" Width="2*"/>
-                                        <DataGridTextColumn Header="타입" Binding="{Binding Type}" Width="*"/>
-                                        <DataGridTextColumn Header="길이" Binding="{Binding Length}" Width="*"/>
+                                        <DataGridTextColumn Header="컬럼 ID" Binding="{Binding ColumnId}" Width="*">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    <Setter Property="Padding" Value="8,0,0,0"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="컬럼명" Binding="{Binding ColumnName}" Width="2*">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    <Setter Property="Padding" Value="8,0,0,0"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="타입" Binding="{Binding Type}" Width="*">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    <Setter Property="Padding" Value="8,0,0,0"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="길이" Binding="{Binding Length}" Width="*">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    <Setter Property="Padding" Value="8,0,0,0"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </DockPanel>
                         </Border>
                     </Grid>
                 </TabItem>
-                <TabItem Header="2. 파일 검사">
+                <TabItem>
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="20" Height="20" CornerRadius="10" Background="#FF555555" Margin="0,0,8,0">
+                                <TextBlock Text="2" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="파일 검사" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </TabItem.Header>
                     <Grid>
                         <Border Background="#FF3E3E42" CornerRadius="5" Margin="10">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="파일 불러오기 및 검사 실행" Foreground="White" FontSize="16" Margin="10" FontWeight="Bold"/>
-                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
-                                    <Button Content="SHP/DBF 파일 열기" Margin="10,0,10,10" Padding="5" Name="OpenFileButton" Click="OpenFileButton_Click"/>
-                                    <TextBlock Name="FileNameText" Text="파일을 선택하세요." Foreground="Gray" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <Button DockPanel.Dock="Bottom" Content="검사 실행" Margin="10" Padding="10" Name="ValidateButton" Click="ValidateButton_Click" FontSize="16" FontWeight="Bold"/>
-                                <DataGrid Name="LoadedFileGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Background="#FF2D2D30" Foreground="White" BorderBrush="Gray">
+                                <Border DockPanel.Dock="Top" Background="#FF4A4A4A" CornerRadius="3" Margin="10" Padding="15" Height="138">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <Border Grid.Row="0" Background="#FF4A4A4A" CornerRadius="3" Margin="10,10,10,10" Padding="15">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Button Grid.Column="0" Content="1. SHP/DBF 파일 열기" Name="OpenFileButton" Click="OpenFileButton_Click" 
+                    Style="{StaticResource ModernButtonStyle}" Height="40"/>
+                                                <TextBlock Grid.Column="1" Text="검사할 파일 목록" Foreground="Gray" 
+                       VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" FontStyle="Italic"/>
+                                                <Button Grid.Column="2" Content="2. 전체 검사 실행" Name="ValidateButton" Click="ValidateButton_Click" FontSize="14" 
+                    Style="{StaticResource ModernButtonStyle}" Background="#FF3498DB" Foreground="White"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <ListBox Grid.Row="1" Name="FileListBox" Margin="10,0,10,10" Background="#FF2D2D30" 
+             Foreground="White" BorderBrush="#FF555555" SelectionChanged="FileListBox_SelectionChanged"/>
+                                    </Grid>
+                                </Border>
+
+                                <DataGrid Name="LoadedFileGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" 
+                          Background="#FF2D2D30" Foreground="White" BorderBrush="Gray" Margin="10,0,10,10">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="컬럼명" Binding="{Binding ColumnName}" Width="2*"/>
                                         <DataGridTextColumn Header="타입" Binding="{Binding DataType.Name}" Width="*"/>
@@ -376,160 +498,302 @@
                     </Grid>
                 </TabItem>
 
-                <TabItem Header="3. 결과 리포트">
+                <TabItem>
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="20" Height="20" CornerRadius="10" Background="#FF555555" Margin="0,0,8,0">
+                                <TextBlock Text="3" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="결과 리포트" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </TabItem.Header>
                     <Grid>
-                        <Border Background="#FF3E3E42" CornerRadius="5" Margin="10">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="파일 검사 결과" Foreground="White" FontSize="16" Margin="10" FontWeight="Bold"/>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                                <!-- 내보내기 버튼 패널 -->
-                                <Border DockPanel.Dock="Top" Background="#FF4A4A4A" CornerRadius="3" Margin="10,0,10,10" Padding="15">
-                                    <StackPanel Orientation="Vertical">
-                                        <!-- PDF 내보내기 섹션 -->
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
-                                            <TextBlock Text="PDF 내보내기:" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                            <Button Name="ExportQuestPdfButton" Content="📄 QuestPDF로 내보내기" 
-                                    Padding="12,6" Margin="0,0,10,0" 
-                                    Background="#FFE74C3C" Foreground="White" 
-                                    FontWeight="Bold" Click="ExportQuestPdfButton_Click"
-                                    ToolTip="QuestPDF 라이브러리 사용 (권장)"/>
-                                            <Button Name="ExportPdfSharpButton" Content="📄 PdfSharp로 내보내기" 
-                                    Padding="12,6" 
-                                    Background="#FFDC143C" Foreground="White" 
-                                    FontWeight="Bold" Click="ExportPdfSharpButton_Click"
-                                    ToolTip="PdfSharp 라이브러리 사용 (가벼움)"/>
-                                        </StackPanel>
-
-                                        <!-- Word 내보내기 섹션 -->
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock Text="Word 내보내기:" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                            <Button Name="ExportToWordButton" Content="📝 Word로 내보내기" 
-                                    Padding="15,8" 
-                                    Background="#FF3498DB" Foreground="White" 
-                                    FontWeight="Bold" Click="ExportToWordButton_Click"
-                                    ToolTip="Microsoft Word 문서로 내보내기"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-
-                                <DataGrid Name="ResultGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" 
-                          Background="#FF2D2D30" Foreground="White" BorderBrush="Gray">
-                                    <DataGrid.Columns>
-                                        <!-- 상태 -->
-                                        <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="60">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <Trigger Property="Text" Value="정상">
-                                                            <Setter Property="Foreground" Value="LightGreen"/>
-                                                            <Setter Property="FontWeight" Value="Bold"/>
-                                                        </Trigger>
-                                                        <Trigger Property="Text" Value="오류">
-                                                            <Setter Property="Foreground" Value="LightCoral"/>
-                                                            <Setter Property="FontWeight" Value="Bold"/>
-                                                        </Trigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-
-                                        <!-- 기준 정보 -->
-                                        <DataGridTextColumn Header="기준 컬럼ID" Binding="{Binding Std_ColumnId}" Width="100"/>
-                                        <DataGridTextColumn Header="기준 컬럼명" Binding="{Binding Std_ColumnName}" Width="120"/>
-                                        <DataGridTextColumn Header="기준 타입" Binding="{Binding Std_Type}" Width="80"/>
-                                        <DataGridTextColumn Header="기준 길이" Binding="{Binding Std_Length}" Width="80"/>
-
-                                        <!-- 파일 정보 -->
-                                        <DataGridTextColumn Header="찾은 필드명" Binding="{Binding Found_FieldName}" Width="100"/>
-                                        <DataGridTextColumn Header="파일 타입" Binding="{Binding Cur_Type}" Width="80">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsTypeCorrect}" Value="False">
-                                                            <Setter Property="Background" Value="#FFFF6B6B"/>
-                                                            <Setter Property="Foreground" Value="White"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsTypeCorrect}" Value="True">
-                                                            <Setter Property="Background" Value="#FF4ECDC4"/>
-                                                            <Setter Property="Foreground" Value="White"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-
-                                        <DataGridTextColumn Header="파일 길이" Binding="{Binding Cur_Length}" Width="80">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsLengthCorrect}" Value="False">
-                                                            <Setter Property="Background" Value="#FFFF6B6B"/>
-                                                            <Setter Property="Foreground" Value="White"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsLengthCorrect}" Value="True">
-                                                            <Setter Property="Background" Value="#FF4ECDC4"/>
-                                                            <Setter Property="Foreground" Value="White"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-
-                                        <!-- 결과 -->
-                                        <DataGridTextColumn Header="필드존재" Binding="{Binding IsFieldFound, Converter={StaticResource BoolToCheckMarkConverter}}" Width="70">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="HorizontalAlignment" Value="Center"/>
-                                                    <Setter Property="FontWeight" Value="Bold"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsFieldFound}" Value="True">
-                                                            <Setter Property="Foreground" Value="LightGreen"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsFieldFound}" Value="False">
-                                                            <Setter Property="Foreground" Value="LightCoral"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-
-                                        <DataGridTextColumn Header="타입일치" Binding="{Binding IsTypeCorrect, Converter={StaticResource BoolToCheckMarkConverter}}" Width="70">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="HorizontalAlignment" Value="Center"/>
-                                                    <Setter Property="FontWeight" Value="Bold"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsTypeCorrect}" Value="True">
-                                                            <Setter Property="Foreground" Value="LightGreen"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsTypeCorrect}" Value="False">
-                                                            <Setter Property="Foreground" Value="LightCoral"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-
-                                        <DataGridTextColumn Header="길이일치" Binding="{Binding IsLengthCorrect, Converter={StaticResource BoolToCheckMarkConverter}}" Width="70">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="HorizontalAlignment" Value="Center"/>
-                                                    <Setter Property="FontWeight" Value="Bold"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsLengthCorrect}" Value="True">
-                                                            <Setter Property="Foreground" Value="LightGreen"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsLengthCorrect}" Value="False">
-                                                            <Setter Property="Foreground" Value="LightCoral"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </DockPanel>
+                        <!-- 내보내기 버튼 영역 -->
+                        <Border Grid.Row="0" Background="#FF4A4A4A" CornerRadius="3" Margin="10,10,10,5" Padding="15">
+                            <StackPanel Orientation="Vertical">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                                    <TextBlock Text="PDF 내보내기:" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <Button Name="ExportPdfSharpButton" Content="📄 PDF로 내보내기" 
+                            Style="{StaticResource ModernButtonStyle}" Background="#FFDC143C" Foreground="White" 
+                            Click="ExportPdfSharpButton_Click"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="Word 내보내기:" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <Button Name="ExportToWordButton" Content="📝 Word로 내보내기" 
+                            Style="{StaticResource ModernButtonStyle}" Background="#FF3498DB" Foreground="White" 
+                            Click="ExportToWordButton_Click"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
+
+                        <!-- 메인 컨텐츠 영역: 왼쪽 파일목록, 오른쪽 결과그리드 -->
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="350"/>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 왼쪽: 파일 목록 TreeView -->
+                            <Border Grid.Column="0" Background="#FF3E3E42" CornerRadius="5" Margin="10,5,0,10">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Text="검사 결과 파일 목록" Foreground="White" FontSize="14" Margin="10,10,10,5" FontWeight="Bold"/>
+                                    <TreeView Name="ResultTreeView" Background="#FF2D2D30" BorderBrush="Gray" Foreground="White" 
+                              Margin="10,0,10,10" SelectedItemChanged="ResultTreeView_SelectedItemChanged">
+                                        <TreeView.Resources>
+                                            <HierarchicalDataTemplate DataType="{x:Type exportModels:ReportData}" ItemsSource="{Binding ValidationResults}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="📁" Margin="0,0,5,0"/>
+                                                    <TextBlock Text="{Binding FileName}" FontWeight="Bold" Foreground="White"/>
+                                                    <TextBlock Text=" (" Foreground="Gray" Margin="5,0,0,0"/>
+                                                    <TextBlock Text="정상:" Foreground="Gray"/>
+                                                    <TextBlock Text="{Binding NormalCount}" Foreground="LightGreen" Margin="3,0,0,0"/>
+                                                    <TextBlock Text="/" Foreground="Gray"/>
+                                                    <TextBlock Text="{Binding TotalCount}" Foreground="Gray"/>
+                                                    <TextBlock Text=" | " Foreground="Gray"/>
+                                                    <TextBlock Text="{Binding SuccessRate}" FontWeight="SemiBold" Foreground="White"/>
+                                                    <TextBlock Text=")" Foreground="Gray"/>
+                                                </StackPanel>
+                                            </HierarchicalDataTemplate>
+                                            <DataTemplate DataType="{x:Type models:ColumnValidationResult}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="🔍" Margin="15,0,5,0"/>
+                                                    <TextBlock Text="{Binding Std_ColumnId}" Foreground="#FFAAAAAA" Width="60"/>
+                                                    <TextBlock Text="{Binding Std_ColumnName}" Foreground="White" Width="80"/>
+                                                    <TextBlock Text="{Binding Status}" FontWeight="Bold" Width="40">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Status}" Value="정상">
+                                                                        <Setter Property="Foreground" Value="LightGreen"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Status}" Value="오류">
+                                                                        <Setter Property="Foreground" Value="LightCoral"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </TreeView.Resources>
+                                    </TreeView>
+                                </DockPanel>
+                            </Border>
+
+                            <GridSplitter Grid.Column="1" Width="5" Background="#FF555555" HorizontalAlignment="Stretch"/>
+
+                            <!-- 오른쪽: 상세 결과 DataGrid -->
+                            <Border Grid.Column="2" Background="#FF3E3E42" CornerRadius="5" Margin="0,5,10,10">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Name="SelectedFileHeader" Text="파일을 선택하여 상세 결과를 확인하세요" 
+                               Foreground="White" FontSize="14" Margin="10,10,10,5" FontWeight="Bold"/>
+
+                                    <DataGrid Name="ResultGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" 
+                              Background="#FF2D2D30" Foreground="White" BorderBrush="Gray" Margin="10,0,10,10" RowHeight="30">
+                                        <DataGrid.Columns>
+                                            <!-- 상태 -->
+                                            <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="60">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="Text" Value="정상">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </Trigger>
+                                                            <Trigger Property="Text" Value="오류">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                                <DataGridTextColumn.CellStyle>
+                                                    <Style TargetType="DataGridCell">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Status}" Value="정상">
+                                                                <Setter Property="Background" Value="#FF4CAF50"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="오류">
+                                                                <Setter Property="Background" Value="#FFF44336"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.CellStyle>
+                                            </DataGridTextColumn>
+
+                                            <!-- 기준 정보 -->
+                                            <DataGridTextColumn Header="기준 컬럼ID" Binding="{Binding Std_ColumnId}" Width="100">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="기준 컬럼명" Binding="{Binding Std_ColumnName}" Width="140">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="Margin" Value="8,0,0,0"/>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="기준 타입" Binding="{Binding Std_Type}" Width="80">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="기준 길이" Binding="{Binding Std_Length}" Width="80">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+
+                                            <!-- 파일 정보 -->
+                                            <DataGridTextColumn Header="찾은 필드명" Binding="{Binding Found_FieldName}" Width="100">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="파일 타입" Binding="{Binding Cur_Type}" Width="80">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsTypeCorrect}" Value="False">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsTypeCorrect}" Value="True">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                                <DataGridTextColumn.CellStyle>
+                                                    <Style TargetType="DataGridCell">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsTypeCorrect}" Value="False">
+                                                                <Setter Property="Background" Value="#FFF44336"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsTypeCorrect}" Value="True">
+                                                                <Setter Property="Background" Value="#FF00BCD4"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.CellStyle>
+                                            </DataGridTextColumn>
+
+                                            <DataGridTextColumn Header="파일 길이" Binding="{Binding Cur_Length}" Width="80">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLengthCorrect}" Value="False">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsLengthCorrect}" Value="True">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                                <DataGridTextColumn.CellStyle>
+                                                    <Style TargetType="DataGridCell">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLengthCorrect}" Value="False">
+                                                                <Setter Property="Background" Value="#FFF44336"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsLengthCorrect}" Value="True">
+                                                                <Setter Property="Background" Value="#FF00BCD4"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.CellStyle>
+                                            </DataGridTextColumn>
+
+                                            <!-- 결과 체크마크 -->
+                                            <DataGridTextColumn Header="필드존재" Binding="{Binding IsFieldFound, Converter={StaticResource BoolToCheckMarkConverter}}" Width="70">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Setter Property="FontSize" Value="16"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsFieldFound}" Value="True">
+                                                                <Setter Property="Foreground" Value="LightGreen"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsFieldFound}" Value="False">
+                                                                <Setter Property="Foreground" Value="LightCoral"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+
+                                            <DataGridTextColumn Header="타입일치" Binding="{Binding IsTypeCorrect, Converter={StaticResource BoolToCheckMarkConverter}}" Width="70">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Setter Property="FontSize" Value="16"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsTypeCorrect}" Value="True">
+                                                                <Setter Property="Foreground" Value="LightGreen"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsTypeCorrect}" Value="False">
+                                                                <Setter Property="Foreground" Value="LightCoral"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+
+                                            <DataGridTextColumn Header="길이일치" Binding="{Binding IsLengthCorrect, Converter={StaticResource BoolToCheckMarkConverter}}" Width="70">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Setter Property="FontSize" Value="16"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLengthCorrect}" Value="True">
+                                                                <Setter Property="Foreground" Value="LightGreen"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsLengthCorrect}" Value="False">
+                                                                <Setter Property="Foreground" Value="LightCoral"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </DockPanel>
+                            </Border>
+                        </Grid>
                     </Grid>
                 </TabItem>
             </TabControl>

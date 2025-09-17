@@ -1,0 +1,68 @@
+﻿<Window x:Class="PureGIS_Geo_QC.WPF.LicenseLoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PureGIS Geo-QC 라이선스 인증" Height="400" Width="500"
+        Background="#FF2D2D30" Foreground="#FFF1F1F1"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+
+    <Grid Margin="30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="15"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="15"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 로고 및 제목 -->
+        <StackPanel Grid.Row="0" Orientation="Vertical" HorizontalAlignment="Center">
+            <Image Source="img/Geo_QC.ico" Width="64" Height="64" Margin="0,0,0,10"/>
+            <TextBlock Text="PureGIS Geo-QC" FontSize="24" FontWeight="Bold" 
+                       HorizontalAlignment="Center" Foreground="#FF3498DB"/>
+            <TextBlock Text="라이선스 인증이 필요합니다" FontSize="14" 
+                       HorizontalAlignment="Center" Foreground="#FFAAAAAA" Margin="0,5,0,0"/>
+        </StackPanel>
+
+        <!-- 라이선스 키 입력 -->
+        <TextBlock Grid.Row="2" Text="라이선스 키:" Foreground="White" FontWeight="Bold"/>
+        <TextBox Grid.Row="4" x:Name="LicenseKeyTextBox" Height="35" 
+                 Background="#FF3F3F46" Foreground="White" BorderBrush="#FF666666"
+                 Padding="10,8" FontSize="12" FontFamily="Consolas"
+                 Text="PUREGIS-DEMO-2024-ABCD1234"/>
+
+        <!-- 상태 메시지 -->
+        <TextBlock Grid.Row="6" x:Name="StatusMessage" Text="" 
+                   Foreground="#FFFF6B6B" HorizontalAlignment="Center"
+                   TextWrapping="Wrap" FontSize="12"/>
+
+        <!-- 버튼들 -->
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button Content="인증하기" Width="100" Height="40" Margin="0,0,15,0"
+                    Background="#FF3498DB" Foreground="White" BorderThickness="0"
+                    FontWeight="Bold" Click="AuthenticateButton_Click" x:Name="AuthenticateButton"/>
+            <Button Content="체험판" Width="100" Height="40" Margin="0,0,15,0"
+                    Background="#FF95A5A6" Foreground="White" BorderThickness="0"
+                    FontWeight="Bold" Click="TrialButton_Click" x:Name="TrialButton"/>
+            <Button Content="종료" Width="100" Height="40"
+                    Background="#FF555555" Foreground="White" BorderThickness="0"
+                    FontWeight="Bold" Click="ExitButton_Click"/>
+        </StackPanel>
+
+        <!-- 안내 텍스트 -->
+        <Border Grid.Row="10" Background="#FF3E3E42" CornerRadius="5" Padding="15">
+            <StackPanel>
+                <TextBlock Text="💡 라이선스 구매 안내" Foreground="#FF3498DB" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="• 웹사이트: https://www.jindigo.kr" Foreground="#FFCCCCCC" Margin="0,0,0,3"/>
+                <TextBlock Text="• 이메일: sales@jindigo.kr" Foreground="#FFCCCCCC" Margin="0,0,0,3"/>
+                <TextBlock Text="• 체험판은 기능 제한이 있습니다" Foreground="#FFCCCCCC" Margin="0,0,0,3"/>
+                <TextBlock Text="• 인터넷 연결이 필요합니다" Foreground="#FFCCCCCC"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

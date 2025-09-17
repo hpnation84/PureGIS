@@ -1,7 +1,8 @@
 ﻿using System;
-using System.IO;
-using System.Data;
 using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,30 +17,33 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using DotSpatial.Data;
 using Microsoft.Win32;
-using PureGIS_Geo_QC.Models;
+using PdfSharpCore.Fonts;
 using PureGIS_Geo_QC;
-using PureGIS_Geo_QC.Managers;
 using PureGIS_Geo_QC.Exports;
 using PureGIS_Geo_QC.Exports.Models;
-
+using PureGIS_Geo_QC.Managers;
+using PureGIS_Geo_QC.Models;
 // 이름 충돌을 피하기 위한 using 별칭(alias) 사용
 using ColumnDefinition = PureGIS_Geo_QC.Models.ColumnDefinition;
 using TableDefinition = PureGIS_Geo_QC.Models.TableDefinition;
-using PdfSharpCore.Fonts;
 
 namespace PureGIS_Geo_QC.WPF
-{    
+{
     /// <summary>
     /// MainWindow.xaml에 대한 상호 작용 논리
     /// </summary>
     public partial class MainWindow : Window
     {
         private List<TableDefinition> standardTables = new List<TableDefinition>();
-        // DataTable 대신 Shapefile 객체를 직접 저장합니다.
-        private Shapefile loadedShapefile = null;
+        // 다중 파일 관리를 위한 변수들
+        private List<Shapefile> loadedShapefiles = new List<Shapefile>();
+        private Shapefile currentSelectedFile = null;
+        private MultiFileReport multiFileReport = new MultiFileReport();
+
         private ProjectDefinition currentProject = null;
         private TableDefinition currentSelectedTable = null;
-
+        public List<string> ColumnTypes { get; } = new List<string> { "VARCHAR2", "NUMBER", "DATE" };
+        
         public MainWindow()
         {
             // =======================================================
@@ -47,6 +51,7 @@ namespace PureGIS_Geo_QC.WPF
             // =======================================================
             GlobalFontSettings.FontResolver = new FontResolver();
             InitializeComponent();
+            this.DataContext = this;
 
         }
         // =======================================================
@@ -665,22 +670,56 @@ namespace PureGIS_Geo_QC.WPF
         #region Tab2 Methods
         private void OpenFileButton_Click(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog openFileDialog = new OpenFileDialog { Filter = "Shapefiles (*.shp)|*.shp" };
-            if (openFileDialog.ShowDialog() != true) return;
-            FileNameText.Text = openFileDialog.SafeFileName;
-            try
+            OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                // Shapefile.OpenFile() 메서드 사용
-                if (Shapefile.OpenFile(openFileDialog.FileName) is Shapefile shapefile)
-                {
-                    this.loadedShapefile = shapefile;
-                    var columnInfoList = new List<FileColumnInfo>();
+                Filter = "Shapefiles (*.shp)|*.shp",
+                Multiselect = true // 여러 파일 선택 허용
+            };
 
-                    // DataTable의 각 컬럼을 순회
-                    foreach (DataColumn col in shapefile.DataTable.Columns)
+            if (openFileDialog.ShowDialog() != true) return;
+
+            foreach (string filePath in openFileDialog.FileNames)
+            {
+                try
+                {
+                    if (Shapefile.OpenFile(filePath) is Shapefile shapefile)
                     {
-                        // GetDbfFieldInfo 헬퍼 메서드를 사용하여 상세 정보 추출
-                        var (typeName, precision, scale) = GetDbfFieldInfo(shapefile, col.ColumnName);
+                        // 중복 추가 방지
+                        if (!loadedShapefiles.Any(f => f.Filename.Equals(filePath, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            loadedShapefiles.Add(shapefile);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    CustomMessageBox.Show(this, "파일 열기 오류", $"{System.IO.Path.GetFileName(filePath)} 파일을 여는 중 오류:\n{ex.Message}");
+                }
+            }
+            UpdateFileListBox(); // ListBox UI 업데이트
+        }
+        /// <summary>
+        /// 파일 목록 ListBox를 업데이트합니다.
+        /// </summary>
+        private void UpdateFileListBox()
+        {
+            FileListBox.ItemsSource = null;
+            FileListBox.ItemsSource = loadedShapefiles.Select(f => System.IO.Path.GetFileName(f.Filename)).ToList();
+        }
+        /// <summary>
+        /// ListBox에서 파일을 선택하면 해당 파일의 컬럼 정보를 DataGrid에 표시합니다.
+        /// </summary>
+        private void FileListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (FileListBox.SelectedItem is string fileName)
+            {
+                var selectedShapefile = loadedShapefiles.FirstOrDefault(f => System.IO.Path.GetFileName(f.Filename) == fileName);
+                if (selectedShapefile != null)
+                {
+                    var columnInfoList = new List<FileColumnInfo>();
+                    foreach (DataColumn col in selectedShapefile.DataTable.Columns)
+                    {
+                        var (typeName, precision, scale) = GetDbfFieldInfo(selectedShapefile, col.ColumnName);
                         columnInfoList.Add(new FileColumnInfo
                         {
                             ColumnName = col.ColumnName,
@@ -690,59 +729,149 @@ namespace PureGIS_Geo_QC.WPF
                     }
                     LoadedFileGrid.ItemsSource = columnInfoList;
                 }
-                else
-                {
-                    CustomMessageBox.Show(this, "파일 형식 오류", "선택한 파일이 Shapefile이 아닙니다.");
-                    this.loadedShapefile = null;
-                    LoadedFileGrid.ItemsSource = null;
-                }
             }
-            catch (Exception ex)
+            else
             {
-                CustomMessageBox.Show(this, "파일 열기 오류", $"파일을 여는 중 오류가 발생했습니다: {ex.Message}");
-                this.loadedShapefile = null;
                 LoadedFileGrid.ItemsSource = null;
             }
         }
-
+        /// <summary>
+        /// 다중 순차 검사 로직
+        /// </summary>
         private void ValidateButton_Click(object sender, RoutedEventArgs e)
         {
-            if (loadedShapefile == null)
+            if (loadedShapefiles.Count == 0)
             {
-                CustomMessageBox.Show(this, "오류", "'파일 열기' 버튼으로 검사할 파일을 먼저 불러와주세요.");
+                CustomMessageBox.Show(this, "오류", "검사할 파일을 먼저 불러와주세요.");
                 return;
             }
-
             if (CurrentProject == null)
             {
                 CustomMessageBox.Show(this, "오류", "프로젝트를 먼저 생성하거나 불러오세요.");
                 return;
             }
 
-            string fileId = System.IO.Path.GetFileNameWithoutExtension(loadedShapefile.Filename);
+            multiFileReport = new MultiFileReport { ProjectName = CurrentProject.ProjectName };
+            int validatedCount = 0;
+            int skippedCount = 0;
 
-            // 🔥 수정: standardTables 대신 CurrentProject.Categories에서 테이블 검색
-            TableDefinition standardTableToValidate = null;
-
-            foreach (var category in CurrentProject.Categories)
+            foreach (var shapefile in loadedShapefiles)
             {
-                standardTableToValidate = category.Tables
-                    .FirstOrDefault(t => t.TableId.Equals(fileId, StringComparison.OrdinalIgnoreCase));
-                if (standardTableToValidate != null)
-                    break;
+                string fileId = System.IO.Path.GetFileNameWithoutExtension(shapefile.Filename);
+                TableDefinition standardTable = null;
+
+                foreach (var category in CurrentProject.Categories)
+                {
+                    standardTable = category.Tables.FirstOrDefault(t => t.TableId.Equals(fileId, StringComparison.OrdinalIgnoreCase));
+                    if (standardTable != null) break;
+                }
+
+                if (standardTable == null)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
+                var validationResults = ValidateSingleFile(shapefile, standardTable);
+                multiFileReport.FileResults.Add(new ReportData
+                {
+                    FileName = System.IO.Path.GetFileName(shapefile.Filename),
+                    ProjectName = CurrentProject.ProjectName,
+                    ValidationResults = validationResults
+                });
+                validatedCount++;
             }
 
-            if (standardTableToValidate == null)
-            {
-                CustomMessageBox.Show(this, "기준 없음",
-                    $"'{fileId}' 파일에 해당하는 기준 테이블(TableId)이 '1. 기준 정의'에 없습니다.\n\n" +
-                    $"현재 로드된 프로젝트: {CurrentProject?.ProjectName ?? "없음"}\n" +
-                    $"등록된 카테고리 수: {CurrentProject?.Categories?.Count ?? 0}");
-                return;
-            }
-
-            ValidateFile(loadedShapefile, standardTableToValidate);
+            ResultTreeView.ItemsSource = multiFileReport.FileResults;
             MainTabControl.SelectedIndex = 2;
+
+            string summary = $"총 {loadedShapefiles.Count}개 파일 중 {validatedCount}개 검사 완료.";
+            if (skippedCount > 0)
+            {
+                summary += $"\n{skippedCount}개 파일은 일치하는 기준 테이블이 없어 건너뛰었습니다.";
+            }
+            CustomMessageBox.Show(this, "검사 완료", summary);
+        }                
+        /// <summary>
+        /// 단일 파일 검사 후 결과를 List로 반환하는 메서드
+        /// </summary>
+        private List<ColumnValidationResult> ValidateSingleFile(Shapefile shapefile, TableDefinition standardTable)
+        {
+            var results = new List<ColumnValidationResult>();
+            try
+            {
+                foreach (var stdCol in standardTable.Columns)
+                {
+                    var resultRow = new ColumnValidationResult
+                    {
+                        Std_ColumnId = stdCol.ColumnId,
+                        Std_ColumnName = stdCol.ColumnName,
+                        Std_Type = stdCol.Type,
+                        Std_Length = stdCol.Length,
+                    };
+
+                    if (!shapefile.DataTable.Columns.Contains(stdCol.ColumnId))
+                    {
+                        resultRow.Status = "오류";
+                        resultRow.Found_FieldName = "없음";
+                        resultRow.IsFieldFound = false;
+                        resultRow.Cur_Type = "없음";
+                        resultRow.Cur_Length = "없음";
+                        resultRow.IsTypeCorrect = false;
+                        resultRow.IsLengthCorrect = false;
+                        results.Add(resultRow);
+                        continue;
+                    }
+
+                    var (curTypeName, curPrecision, curScale) = GetDbfFieldInfo(shapefile, stdCol.ColumnId);
+                    resultRow.Found_FieldName = stdCol.ColumnId;
+                    resultRow.IsFieldFound = true;
+                    resultRow.Cur_Type = curTypeName;
+                    resultRow.Cur_Length = curScale > 0 ? $"{curPrecision},{curScale}" : curPrecision.ToString();
+
+                    if (stdCol.Type.Equals("VARCHAR2", StringComparison.OrdinalIgnoreCase))
+                    {
+                        resultRow.IsTypeCorrect = curTypeName.Equals("Character", StringComparison.OrdinalIgnoreCase);
+                    }
+                    else if (stdCol.Type.Equals("NUMBER", StringComparison.OrdinalIgnoreCase))
+                    {
+                        resultRow.IsTypeCorrect = curTypeName.Equals("Numeric", StringComparison.OrdinalIgnoreCase);
+                    }
+                    else
+                    {
+                        resultRow.IsTypeCorrect = stdCol.Type.Equals(curTypeName, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    if (resultRow.IsTypeCorrect)
+                    {
+                        var (stdPrecision, stdScale) = ParseStandardLength(stdCol.Length);
+                        if (stdCol.Type.Equals("VARCHAR2", StringComparison.OrdinalIgnoreCase))
+                        {
+                            resultRow.IsLengthCorrect = (stdPrecision == curPrecision);
+                        }
+                        else if (stdCol.Type.Equals("NUMBER", StringComparison.OrdinalIgnoreCase))
+                        {
+                            resultRow.IsLengthCorrect = (stdPrecision == curPrecision && stdScale == curScale);
+                        }
+                        else
+                        {
+                            resultRow.IsLengthCorrect = true;
+                        }
+                    }
+                    else
+                    {
+                        resultRow.IsLengthCorrect = false;
+                    }
+
+                    resultRow.Status = (resultRow.IsTypeCorrect && resultRow.IsLengthCorrect) ? "정상" : "오류";
+                    results.Add(resultRow);
+                }
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show(this, "검사 오류", $"파일 검사 중 오류가 발생했습니다: {ex.Message}");
+            }
+            return results;
         }
         #endregion
 
@@ -828,16 +957,16 @@ namespace PureGIS_Geo_QC.WPF
 
                     resultRow.Status = (resultRow.IsTypeCorrect && resultRow.IsLengthCorrect) ? "정상" : "오류";
                     results.Add(resultRow);
+
                 }
 
-                ResultGrid.ItemsSource = results;
-                int errorCount = results.Count(r => r.Status == "오류");
-                CustomMessageBox.Show(this, "검증 완료", $"검증 완료: 총 {results.Count}개 중 정상: {results.Count - errorCount}개, 오류: {errorCount}개");
+                
             }
             catch (Exception ex)
             {
                 CustomMessageBox.Show(this, "검사 오류", $"파일 검사 중 오류가 발생했습니다: {ex.Message}");
             }
+
         }
 
         /// <summary>
@@ -1105,12 +1234,20 @@ namespace PureGIS_Geo_QC.WPF
         }
 
         /// <summary>
-            /// 프로그램 정보 메뉴 클릭
+        /// 프로그램 정보 메뉴 클릭
         /// </summary>
         private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: AboutWindow 창 띄우기 기능 구현
-            CustomMessageBox.Show(this, "정보", "프로그램 정보 창은 향후 구현 예정입니다.");
+            try
+            {
+                var aboutWindow = new AboutWindow();
+                aboutWindow.Owner = this; // 부모 창 설정 (센터 정렬을 위해)
+                aboutWindow.ShowDialog(); // 모달 창으로 표시
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show(this, "오류", $"정보 창을 여는 중 오류가 발생했습니다: {ex.Message}");
+            }
         }
         /// <summary>
         /// ✨ 1. 프로젝트 이름 저장 버튼 클릭 이벤트
@@ -1163,26 +1300,19 @@ namespace PureGIS_Geo_QC.WPF
         /// 통합 내보내기 메서드
         /// </summary>
         /// <param name="exporter">사용할 내보내기 구현체</param>
+        /// <summary>
+        /// 통합 내보내기 메서드 (MultiFileReport 사용)
+        /// </summary>
         private void ExportReport(IReportExporter exporter)
         {
             try
             {
-                // 1. 검사 결과 데이터 확인
-                if (ResultGrid.ItemsSource == null)
+                if (multiFileReport.FileResults.Count == 0)
                 {
                     CustomMessageBox.Show(this, "알림", "내보낼 검사 결과가 없습니다.");
                     return;
                 }
 
-                // 2. 보고서 데이터 생성
-                var reportData = CreateReportData();
-                if (reportData == null)
-                {
-                    CustomMessageBox.Show(this, "오류", "보고서 데이터 생성에 실패했습니다.");
-                    return;
-                }
-
-                // 3. 파일 저장 대화상자
                 var saveFileDialog = new SaveFileDialog
                 {
                     Filter = exporter.FileFilter,
@@ -1192,8 +1322,8 @@ namespace PureGIS_Geo_QC.WPF
 
                 if (saveFileDialog.ShowDialog() == true)
                 {
-                    // 4. 내보내기 실행
-                    bool success = exporter.Export(reportData, saveFileDialog.FileName);
+                    // multiFileReport 객체를 직접 넘겨줍니다.
+                    bool success = exporter.Export(multiFileReport, saveFileDialog.FileName);
 
                     if (success)
                     {
@@ -1216,49 +1346,6 @@ namespace PureGIS_Geo_QC.WPF
                     $"오류: {ex.Message}");
             }
         }
-
-        /// <summary>
-        /// 현재 상태에서 ReportData 객체 생성
-        /// </summary>
-        /// <returns>생성된 ReportData 객체</returns>
-        private ReportData CreateReportData()
-        {
-            try
-            {
-                var results = ResultGrid.ItemsSource as List<ColumnValidationResult>;
-                if (results == null || results.Count == 0)
-                {
-                    return null;
-                }
-
-                // 파일명 추출
-                var fileName = "알 수 없음";
-                if (loadedShapefile?.Filename != null)
-                {
-                    fileName = System.IO.Path.GetFileName(loadedShapefile.Filename);
-                }
-
-                // 프로젝트명 추출
-                var projectName = CurrentProject?.ProjectName ?? "프로젝트 없음";
-
-                // ReportData 생성
-                var reportData = new ReportData
-                {
-                    ReportDate = DateTime.Now,
-                    FileName = fileName,
-                    ProjectName = projectName,
-                    ValidationResults = new List<ColumnValidationResult>(results)
-                };
-
-                return reportData;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"CreateReportData 오류: {ex.Message}");
-                return null;
-            }
-        }
-
         #endregion
         #region TreeView Drag and Drop
         // =======================================================
@@ -1328,5 +1415,54 @@ namespace PureGIS_Geo_QC.WPF
             }
         }
         #endregion
+        // MainWindow.xaml.cs에 추가할 이벤트 핸들러
+
+        /// <summary>
+        /// 결과 TreeView에서 파일 선택 시 해당 파일의 상세 결과를 DataGrid에 표시
+        /// </summary>
+        private void ResultTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            try
+            {
+                if (e.NewValue is ReportData selectedReportData)
+                {
+                    // 선택된 파일의 상세 결과를 DataGrid에 바인딩
+                    ResultGrid.ItemsSource = selectedReportData.ValidationResults;
+
+                    // 헤더 업데이트
+                    if (SelectedFileHeader != null)
+                    {
+                        string headerText = $"📊 {selectedReportData.FileName} 상세 결과 " +
+                                          $"(정상: {selectedReportData.NormalCount}/{selectedReportData.TotalCount} | " +
+                                          $"성공률: {selectedReportData.SuccessRate})";
+                        SelectedFileHeader.Text = headerText;
+                    }
+                }
+                else if (e.NewValue is ColumnValidationResult)
+                {
+                    // 개별 컬럼 선택 시에는 아무 동작 안함 (TreeView에서 컬럼 클릭해도 DataGrid는 변경되지 않음)
+                    return;
+                }
+                else
+                {
+                    // 아무것도 선택되지 않았을 때
+                    ResultGrid.ItemsSource = null;
+                    if (SelectedFileHeader != null)
+                    {
+                        SelectedFileHeader.Text = "파일을 선택하여 상세 결과를 확인하세요";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ResultTreeView_SelectedItemChanged 오류: {ex.Message}");
+                if (SelectedFileHeader != null)
+                {
+                    SelectedFileHeader.Text = "결과 표시 중 오류가 발생했습니다";
+                }
+            }
+        }
+
+
     }
 }
